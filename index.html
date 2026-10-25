@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>6天5夜孝親環島隨身神助手</title>
+    
+    <!-- PWA 行動裝置全螢幕 App 設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e3a8a">
+    
+    <!-- 第三方資源 CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        /* 隱藏滾動條但保持功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* 撐開手機底部安全區域 */
+        .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 5rem); }
+        .safe-top { padding-top: env(safe-area-inset-top); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased selection:bg-blue-100">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // 核心排程數據（包含 Google 地圖真實搜尋聯結）
+        const initialItinerary = [
+            {
+                day: 1, title: "五大名廟祈福之旅", route: "台北 ➔ 苗栗 ➔ 彰化 ➔ 北港", stay: "北港武德宮 - 三學舍",
+                items: [
+                    { time: "08:00", spot: "台北出發", desc: "走國道3號南下，注意避開晨間車潮。" },
+                    { time: "09:30", spot: "白沙屯拱天宮", desc: "參拜大殿軟身媽祖。車停第一或第二平地停車場，路面最平坦。", map: "https://www.google.com/maps/search/?api=1&query=白沙屯拱天宮" },
+                    { time: "11:15", spot: "鹿港天后宮 (午餐)", desc: "先在大門放長輩下車，再去停特約停車場。享用在地蚵仔煎、麵線糊。", map: "https://www.google.com/maps/search/?api=1&query=鹿港天后宮" },
+                    { time: "13:15", spot: "鹿港龍山寺", desc: "觀賞國寶「八卦藻井」木雕。雙廟之間建議開車移動，免走紅磚路。", map: "https://www.google.com/maps/search/?api=1&query=鹿港龍山寺" },
+                    { time: "15:30", spot: "北港武德宮", desc: "五路財神祖廟。摸巨大金元寶招財，隨後至「樂咖啡」吹冷氣歇息。", map: "https://www.google.com/maps/search/?api=1&query=北港武德宮" },
+                    { time: "17:30", spot: "北港朝天宮", desc: "黃昏參拜最優雅。晚餐吃老受鴨肉飯，隨後返回武德宮三學舍入住。", map: "https://www.google.com/maps/search/?api=1&query=北港朝天宮" }
+                ]
+            },
+            {
+                day: 2, title: "府城美食與駁二落日", route: "雲林北港 ➔ 嘉義 ➔ 台南 ➔ 高雄", stay: "城市商旅 高雄真愛館",
+                items: [
+                    { time: "09:00", spot: "武德宮樂咖啡早餐", desc: "廟區內優雅用膳，長輩起床完全免奔波勞碌。" },
+                    { time: "10:30", spot: "嘉義林聰明沙鍋魚頭", desc: "先放長輩下車抽號碼牌，駕駛再去停「西市場公有停車場」。", map: "https://www.google.com/maps/search/?api=1&query=林聰明沙鍋魚頭中正總店" },
+                    { time: "13:00", spot: "台南祀典武廟 ＆ 大天后宮", desc: "車停赤崁樓旁。過廟宇傳統高木門檻時，請牽好長輩、抬高腳步。", map: "https://www.google.com/maps/search/?api=1&query=祀典武廟" },
+                    { time: "15:00", spot: "台南孔廟", desc: "車停府前路。園區皆為大樹蔭平地，極適合長輩放慢腳步乘涼散步。", map: "https://www.google.com/maps/search/?api=1&query=台南孔廟" },
+                    { time: "17:00", spot: "高雄駁二大港橋", desc: "車停蓬萊停車場。看落日與大港橋旋轉秀，隨後直接步行2分鐘入住真愛館。", map: "https://www.google.com/maps/search/?api=1&query=大港橋" }
+                ]
+            },
+            {
+                day: 3, title: "佛國巡禮與財神土地公", route: "高雄 ➔ 佛光山 ➔ 車城 ➔ 恆春", stay: "車城福安宮香客大樓 (晴海會館)",
+                items: [
+                    { time: "08:30", spot: "高雄出發", desc: "飯店退房後直奔大樹區。" },
+                    { time: "10:15", spot: "佛光山佛陀紀念館", desc: "大門禮敬大廳前先下車. 館內可免費借用輪椅，全程平坦無障礙坡道、冷氣舒適. 中午於館內享用蔬食。", map: "https://www.google.com/maps/search/?api=1&query=佛光山佛陀紀念館" },
+                    { time: "14:20", spot: "車城福安宮", desc: "全台最大土地公廟，內設電梯。必看全自動吸金紙金爐. 廟口吃綠豆蒜點心。", map: "https://www.google.com/maps/search/?api=1&query=車城福安宮" },
+                    { time: "17:00", spot: "恆春古城慢遊散步", desc: "入住晴海會館休息後，傍晚開車去恆春西門與南門老街散步，晚餐吃古城美食。", map: "https://www.google.com/maps/search/?api=1&query=恆春古城南門" }
+                ]
+            },
+            {
+                day: 4, title: "墾丁海景與小野柳星空", route: "車城 ➔ 貓鼻頭 ➔ 龍磐 ➔ 台東", stay: "台東小野柳露營區 (有頂營位)",
+                items: [
+                    { time: "08:00", spot: "車城早鳥出發", desc: "避開暴曬陽光，開啟公路看海模式。" },
+                    { time: "08:45", spot: "貓鼻頭公園", desc: "免踩沙！走鋪設完善的平坦觀景步道，安全欣賞巴士海峽與裙礁海岸。", map: "https://www.google.com/maps/search/?api=1&query=貓鼻頭公園" },
+                    { time: "10:15", spot: "龍磐公園", desc: "路邊木棧步道僅需走2分鐘即達，遠眺多層次藍太平洋崖景. 海風強記得加外套。", map: "https://www.google.com/maps/search/?api=1&query=龍磐公園" },
+                    { time: "12:15", spot: "大武之心南迴驛", desc: "橫越南迴公路後的超大無障礙海景休息站. 在此享用午餐並讓長輩拉筋防暈車。", map: "https://www.google.com/maps/search/?api=1&query=大武之心南迴驛" },
+                    { time: "15:00", spot: "加路蘭遊憩區", desc: "臨海大片平坦草地，有許多精緻漂流木藝術裝置，長輩行走無負擔。", map: "https://www.google.com/maps/search/?api=1&query=加路蘭遊憩區" },
+                    { time: "17:00", spot: "小野柳露營區", desc: "開車直達營位旁免提重物. 晚上至富岡漁港享用海鮮，回營區聽海浪聲入睡。", map: "https://www.google.com/maps/search/?api=1&query=小野柳露營區" }
+                ]
+            },
+            {
+                day: 5, title: "東海岸慢活與七星潭日落", route: "台東 ➔ 三仙台 ➔ 花蓮七星潭", stay: "花蓮踏浪星辰豪華露營車",
+                items: [
+                    { time: "06:00", spot: "小野柳營位看日出", desc: "睜開眼即可在營位欣賞太平洋壯麗日出。" },
+                    { time: "09:30", spot: "台11線海岸公路北上", desc: "一邊是山一邊是海，每90分鐘強制找超商或加油站讓長輩下車活動筋骨。" },
+                    { time: "11:00", spot: "三仙台遊客中心", desc: "⚠️ 八拱橋階梯極多且風大，長輩切勿嘗試攀爬！在遊客中心平坦木棧道喝咖啡遠眺即可。", map: "https://www.google.com/maps/search/?api=1&query=三仙台遊客中心" },
+                    { time: "16:00", spot: "七星潭風景區", desc: "車停賞星廣場旁，長輩直接坐在廣場長椅上，舒適吹海風、聽礫石浪濤聲。", map: "https://www.google.com/maps/search/?api=1&query=七星潭風景區" },
+                    { time: "17:00", spot: "踏浪星辰豪華露營車", desc: "入住海景第一排. 內含獨立冷氣、高級獨立衛浴與彈簧大床，兼顧野趣與舒適。", map: "https://www.google.com/maps/search/?api=1&query=踏浪星辰豪華露營" }
+                ]
+            },
+            {
+                day: 6, title: "清水斷崖與礁溪溫泉足湯", route: "花蓮 ➔ 蘇花改 ➔ 宜蘭礁溪 ➔ 台北", stay: "溫暖的家",
+                items: [
+                    { time: "08:30", spot: "七星潭晨曦出發", desc: "享用營區早餐後退房，向北行駛蘇花改。" },
+                    { time: "09:15", spot: "崇德觀景台 (清水斷崖)", desc: "設有無障礙平台，免爬高即可輕鬆遠眺幾近垂直入海的清水斷崖奇景。", map: "https://www.google.com/maps/search/?api=1&query=崇德瑩農場" },
+                    { time: "12:00", spot: "宜蘭礁溪享用甕窯雞", desc: "安排在地極富盛名的中式烤雞大餐，完全符合長輩傳統胃口。", map: "https://www.google.com/maps/search/?api=1&query=礁溪甕窯雞" },
+                    { time: "13:30", spot: "礁溪溫泉公園 (泡腳)", desc: "安排長輩泡溫泉足湯，有效洗去6天連續拉車的腰酸背痛與雙腿水腫，隨後返北。", map: "https://www.google.com/maps/search/?api=1&query=礁溪溫泉公園" }
+                ]
+            }
+        ];
+
+        // 行程隨身檢查清單基礎數據
+        const initialChecklist = [
+            { id: 1, text: "長輩個人必備健保卡、慢性病藥品", category: "重要", checked: true },
+            { id: 2, text: "車用保溫瓶（每天出發前在飯店裝滿溫熱水）", category: "重要", checked: true },
+            { id: 3, text: "防風薄外套 / 絲巾（東半部與海邊風強防感冒）", category: "重要", checked: false },
+            { id: 4, text: "遮陽大傘（防曬兼防陣雨，長輩還能當拐杖撐）", category: "必備", checked: false },
+            { id: 5, text: "車上防嘴饞與低血糖小點心（北港花生、蘇打餅）", category: "必備", checked: false },
+            { id: 6, text: "防滑好穿的休閒鞋（應對古蹟高門檻與木棧道）", category: "必備", checked: false }
+        ];
+
+        function App() {
+            const [activeTab, setActiveTab] = useState("itinerary");
+            const [selectedDay, setSelectedDay] = useState(1);
+            
+            // 利用本地儲存功能（LocalStorage），讓資料不遺失
+            const [expenses, setExpenses] = useState(() => {
+                const local = localStorage.getItem("環島記帳");
+                return local ? JSON.parse(local) : [
+                    { id: 1, title: "武德宮三學舍住宿", amount: 4800, category: "住宿" },
+                    { id: 2, title: "林聰明沙鍋魚頭午餐", amount: 1250, category: "餐飲" }
+                ];
+            });
+            const [checklist, setChecklist] = useState(() => {
+                const local = localStorage.getItem("環島清單");
+                return local ? JSON.parse(local) : initialChecklist;
+            });
+
+            const [newExpTitle, setNewExpTitle] = useState("");
+            const [newExpAmount, setNewExpAmount] = useState("");
+            const [newExpCat, setNewExpCat] = useState("餐飲");
+            const [newTodo, setNewTodo] = useState("");
+
+            useEffect(() => { localStorage.setItem("環島記帳", JSON.stringify(expenses)); }, [expenses]);
+            useEffect(() => { localStorage.setItem("環島清單", JSON.stringify(checklist)); }, [checklist]);
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [activeTab, selectedDay, expenses, checklist]);
+
+            const totalExpense = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
+
+            const addExpense = (e) => {
+                e.preventDefault();
+                if (!newExpTitle || !newExpAmount) return;
+                setExpenses([...expenses, { id: Date.now(), title: newExpTitle, amount: Number(newExpAmount), category: newExpCat }]);
+                setNewExpTitle(""); setNewExpAmount("");
+            };
+
+            const deleteExpense = (id) => setExpenses(expenses.filter(item => item.id !== id));
+            const toggleTodo = (id) => setChecklist(checklist.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
+            const addTodo = (e) => {
+                e.preventDefault();
+                if (!newTodo) return;
+                setChecklist([...checklist, { id: Date.now(), text: newTodo, category: "自訂", checked: false }]);
+                setNewTodo("");
+            };
+
+            const currentDayData = initialItinerary.find(d => d.day === selectedDay);
+
+            return (
+                <div class="max-w-md mx-auto bg-gray-50 min-h-screen flex flex-col relative shadow-xl border-x border-gray-200">
+                    
+                    {/* App 頂部藍色導航列 */}
+                    <header class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white px-4 pt-7 pb-4 sticky top-0 z-40 shadow-md safe-top">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h1 class="text-lg font-black tracking-wide flex items-center gap-1.5">
+                                    <i data-lucide="compass" class="w-5 h-5 text-amber-400"></i> 6天5夜孝親環島助手
+                                </h1>
+                                <p class="text-[10px] text-blue-200 mt-0.5 tracking-wider">SENIOR-FRIENDLY TAIWAN TOUR GUIDE</p>
+                            </div>
+                            <span class="bg-amber-400 text-blue-950 text-[10px] px-2 py-0.5 rounded-full font-black shadow">定案版</span>
+                        </div>
+                    </header>
+
+                    {/* 主內容呈現區 */}
+                    <main class="flex-1 p-4 safe-bottom">
+                        
+                        {/* 頁籤一：每日排程 */}
+                        {activeTab === "itinerary" && (
+                            <div>
+                                {/* 天數橫式切換滑軌 */}
+                                <div class="grid grid-cols-6 gap-1.5 bg-white p-1.5 rounded-xl shadow-sm border border-gray-200/60 mb-4 sticky top-[4.2rem] z-30">
+                                    {initialItinerary.map(d => (
+                                        <button 
+                                            key={d.day}
+                                            onClick={() => setSelectedDay(d.day)}
+                                            class={`py-2 rounded-lg text-center flex flex-col items-center transition-all ${selectedDay === d.day ? 'bg-blue-600 text-white shadow-md font-black scale-105' : 'text-gray-500 hover:bg-gray-50'}`}
+                                        >
+                                            <span class="text-[9px] uppercase font-bold tracking-tight opacity-80">Day</span>
+                                            <span class="text-base font-mono font-bold">{d.day}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* 當日核心導覽卡片 */}
+                                <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-5 relative overflow-hidden">
+                                    <div class="absolute right-0 top-0 bg-blue-50 text-blue-600 font-mono text-5xl font-black opacity-10 pr-2 pt-1">D{currentDayData.day}</div>
+                                    <div class="flex items-center gap-1.5 text-blue-600 font-bold text-xs tracking-wider mb-1.5">
+                                        <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
+                                        <span>第 {currentDayData.day} 天行程指南</span>
+                                    </div>
+                                    <h2 class="text-base font-black text-gray-900 mb-1.5">{currentDayData.title}</h2>
+                                    <p class="text-xs text-gray-700 bg-gray-50 px-2.5 py-2 rounded-lg border border-gray-100 flex items-center gap-1.5 mb-3">
+                                        <i data-lucide="shuffle" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
+                                        <span class="font-bold text-gray-800">{currentDayData.route}</span>
+                                    </p>
+                                    <div class="border-t border-dashed border-gray-200 pt-3 flex items-center justify-between">
+                                        <span class="text-xs text-gray-500 font-bold flex items-center gap-1"><i data-lucide="moon" class="w-3.5 h-3.5 text-indigo-400"></i>夜宿點：</span>
+                                        <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">{currentDayData.stay}</span>
+                                    </div>
+                                </div>
+
+                                {/* 當日時間軸線 */}
+                                <div class="relative border-l-2 border-blue-100 ml-3 pl-5 space-y-5">
+                                    {currentDayData.items.map((item, index) => (
+                                        <div key={index} class="relative">
+                                            <span class="absolute -left-[1.68rem] top-1 bg-blue-600 rounded-full w-3.5 h-3.5 border-2 border-white shadow-sm"></span>
+                                            <div class="bg-white rounded-xl p-3.5 shadow-sm border border-gray-100">
+                                                <div class="flex justify-between items-start gap-2 mb-1.5">
+                                                    <div>
+                                                        <span class="text-xs font-mono font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 mr-1.5">{item.time}</span>
+                                                        <h3 class="font-black text-gray-900 text-sm inline-block">{item.spot}</h3>
+                                                    </div>
+                                                    {item.map && (
+                                                        <a href={item.map} target="_blank" rel="noreferrer" class="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100 shadow-sm active:scale-95 transition-all">
+                                                            <i data-lucide="map" class="w-3 h-3"></i>導航
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <p class="text-xs text-gray-600 leading-relaxed font-medium">{item.desc}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 頁籤二：即時記帳 */}
+                        {activeTab === "budget" && (
+                            <div class="space-y-4">
+                                <div class="bg-gradient-to-br from-slate-900 to-blue-950 text-white rounded-2xl p-5 shadow-md flex justify-between items-center relative overflow-hidden">
+                                    <div class="absolute -right-4 -bottom-4 bg-white/5 text-9xl font-black font-mono select-none pointer-events-none">\$</div>
+                                    <div>
+                                        <p class="text-xs font-bold text-blue-200 tracking-wider">目前累計總花費</p>
+                                        <p class="text-3xl font-mono font-black mt-1 text-amber-400"><span>$</span>{totalExpense.toLocaleString()}</p>
+                                    </div>
+                                    <i data-lucide="wallet" class="w-10 h-10 text-blue-300/80"></i>
+                                </div>
+
+                                <form onSubmit={addExpense} class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-3">
+                                    <h3 class="text-xs font-black text-gray-800 uppercase tracking-wider flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4 text-blue-500"></i>新增一筆開銷</h3>
+                                    <div class="grid grid-cols-12 gap-2">
+                                        <input type="text" placeholder="項目" value={newExpTitle} onChange={e => setNewExpTitle(e.target.value)} class="col-span-6 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-medium" />
+                                        <input type="number" placeholder="金額" value={newExpAmount} onChange={e => setNewExpAmount(e.target.value)} class="col-span-3 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500 font-bold" />
+                                        <select value={newExpCat} onChange={e => setNewExpCat(e.target.value)} class="col-span-3 border border-gray-200 rounded-lg px-1 py-1.5 text-xs font-bold bg-white focus:outline-none">
+                                            <option>餐飲</option><option>住宿</option><option>油資</option><option>門票</option><option>雜支</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="w-full bg-blue-600 active:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs shadow-sm transition-all">確認記帳</button>
+                                </form>
+
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <div class="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                                        <h3 class="text-xs font-black text-gray-800 tracking-wider">開銷費用明細</h3>
+                                        <span class="text-[10px] text-gray-400 font-mono">共 {expenses.length} 筆項目</span>
+                                    </div>
+                                    <div class="divide-y divide-gray-100 max-h-[16rem] overflow-y-auto no-scrollbar">
+                                        {expenses.length === 0 ? (
+                                            <p class="text-xs text-gray-400 text-center py-6">目前尚無任何記帳資料</p>
+                                        ) : (
+                                            expenses.map(item => (
+                                                <div key={item.id} class="px-4 py-3 flex justify-between items-center hover:bg-gray-50 transition-all">
+                                                    <div class="flex items-center gap-2.5">
+                                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">{item.category}</span>
+                                                        <span class="text-xs font-bold text-gray-800">{item.title}</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-3">
+                                                        <span class="text-xs font-mono font-black text-gray-900">${item.amount.toLocaleString()}</span>
+                                                        <button type="button" onClick={() => deleteExpense(item.id)} class="text-gray-300 hover:text-red-500 active:scale-90 transition-all">
+                                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 頁籤三：打包清單 */}
+                        {activeTab === "checklist" && (
+                            <div class="space-y-4">
+                                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                                    <div class="flex justify-between items-center mb-1.5">
+                                        <h3 class="text-xs font-black text-gray-800 tracking-wider flex items-center gap-1"><i data-lucide="check-square" class="w-4 h-4 text-blue-500"></i>隨身行李與備品檢查</h3>
+                                        <span class="text-xs font-mono font-black text-blue-600">
+                                            {checklist.filter(c => c.checked).length}/{checklist.length} 已備妥
+                                        </span>
+                                    </div>
+                                    <div class="w-full bg-gray-100 rounded-full h-2">
+                                        <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${checklist.length > 0 ? (checklist.filter(c => c.checked).length / checklist.length) * 100 : 0}%` }}></div>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={addTodo} class="flex gap-1.5">
+                                    <input type="text" placeholder="加記需要攜帶的自訂物品..." value={newTodo} onChange={e => setNewTodo(e.target.value)} class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-medium shadow-sm bg-white" />
+                                    <button type="submit" class="bg-blue-600 active:bg-blue-700 text-white font-bold px-4 rounded-xl text-xs shadow-sm shrink-0 transition-all">新增</button>
+                                </form>
+
+                                <div class="bg-white rounded-2xl p-2 shadow-sm border border-gray-100 divide-y divide-gray-50">
+                                    {checklist.map(item => (
+                                        <div 
+                                            key={item.id} 
+                                            onClick={() => toggleTodo(item.id)}
+                                            class="p-3 flex items-start gap-3 active:bg-gray-50/80 transition-all select-none"
+                                        >
+                                            <span class={`mt-0.5 shrink-0 rounded border flex items-center justify-center transition-all w-4.5 h-4.5 ${item.checked ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 bg-white'}`}>
+                                                {item.checked && <i data-lucide="check" class="w-3 h-3 text-white"></i>}
+                                            </span>
+                                            <div class="flex-1">
+                                                <p class={`text-xs font-bold leading-normal transition-all ${item.checked ? 'line-through text-gray-400 font-normal' : 'text-gray-800'}`}>{item.text}</p>
+                                                <span class="text-[9px] font-black tracking-wider uppercase bg-gray-100 text-gray-400 px-1.5 py-0.2 rounded mt-1 inline-block border border-gray-200/50">{item.category}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* App 底部頁籤切換列 */}
+                    <nav class="fixed bottom-0 max-w-md w-full bg-white/95 backdrop-blur border-t border-gray-200 grid grid-cols-3 py-2 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] z-50 px-4 pb-safe">
+                        <button type="button" onClick={() => setActiveTab("itinerary")} class={`flex flex-col items-center gap-0.5 py-1 select-none transition-all ${activeTab === "itinerary" ? 'text-blue-600 font-black scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
+                            <i data-lucide="milestone" class="w-5 h-5"></i><span class="text-[10px]">每日排程</span>
+                        </button>
+                        <button type="button" onClick={() => setActiveTab("budget")} class={`flex flex-col items-center gap-0.5 py-1 select-none transition-all ${activeTab === "budget" ? 'text-blue-600 font-black scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
+                            <i data-lucide="receipt" class="w-5 h-5"></i><span class="text-[10px]">隨身記帳</span>
+                        </button>
+                        <button type="button" onClick={() => setActiveTab("checklist")} class={`flex flex-col items-center gap-0.5 py-1 select-none transition-all ${activeTab === "checklist" ? 'text-blue-600 font-black scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
+                            <i data-lucide="check-square" class="w-5 h-5"></i><span class="text-[10px]">清單檢查</span>
+                        </button>
+                    </nav>
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
